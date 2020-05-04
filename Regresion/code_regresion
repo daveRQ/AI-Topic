@@ -9,6 +9,7 @@ Original file is located at
 
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 
 def read_document(name_archivo, columns):
     route = "drive/My Drive/Colab Notebooks/Regresion Homework/Datasets/" + name_archivo
@@ -32,6 +33,7 @@ def read_document(name_archivo, columns):
     words = words[1:,:]
     return words;
 
+
 def read_document_divided(name_archivo, columns):
     route = "drive/My Drive/Colab Notebooks/Regresion Homework/Datasets/" + name_archivo
     data = pd.read_csv(route, index_col = 0)
@@ -51,11 +53,16 @@ def read_document_divided(name_archivo, columns):
     for i in range(0, columns):
         for x in range (i, words_temp.size, columns):
             words[int(x / columns), i] = words_temp[x]
+
+
+    words = words[:,:].astype(float)
+    
     return words;
 
-def separate_data(nparray, columns, nombre_csv):
+
+def separate_data(nparray, nombre_csv):
     # 70%-train     30%-test
-    tam70 = int((nparray.size / columns) * 0.7) + 1
+    tam70 = int(nparray.shape[0] * 0.7) + 1
 
     ar_train = np.array(nparray[0:tam70, 0:])
     ar_test = np.array(nparray[tam70:, 0:])
@@ -72,10 +79,8 @@ def separate_data(nparray, columns, nombre_csv):
 
 def write_data(nparray, nombre_csv):
     df_train = pd.DataFrame(nparray)
-
     # print(ar_train.shape)
     # print(ar_test.shape)
-
     df_train.to_csv("drive/My Drive/Colab Notebooks/Regresion Homework/Datasets/" + nombre_csv + "-train.csv", index = 0)
 
 # Leo documentos
@@ -110,100 +115,228 @@ petroleo[:,3] =  (temp - float(np.mean(temp))) / float(np.std(temp))
 temp = petroleo[:,4]
 petroleo[:,4] =  (temp - float(np.mean(temp))) / float(np.std(temp))
 
+# Agregando columna de 1s
+temp = np.zeros([oceano.shape[0], oceano.shape[1] + 1])
+temp[:,0] = 1
+temp[:,1:] = oceano[:,:]
+oceano = temp;
+
+temp = np.zeros([casa.shape[0], casa.shape[1] + 1])
+temp[:,0] = 1
+temp[:,1:] = casa[:,:]
+casa = temp;
+
+temp = np.zeros([petroleo.shape[0], petroleo.shape[1] + 1])
+temp[:,0] = 1
+temp[:,1:] = petroleo[:,:]
+petroleo = temp;
+
 
 # Separo train y en test
-separate_data(oceano, 2, "oceano")
-separate_data(casa, 2, "casa")
-separate_data(petroleo, 2, "petroleo")
+separate_data(oceano, "oceano")
+separate_data(casa, "casa")
+separate_data(petroleo, "petroleo")
 
-# Leo los train
-oceano_train = read_document_divided("oceano-train.csv", 2)
-casa_train = read_document_divided("casa-train.csv", 2)
-petroleo_train = read_document_divided("petroleo-train.csv", 5)
+# Funciones
+def ecuacion_normal(nparray):
+    data_x = nparray[:,:nparray.shape[1] - 1]
+    data_y = nparray[:,nparray.shape[1] - 1]
+    result = (np.linalg.inv(data_x.transpose().dot(data_x)).dot(data_x.transpose())).dot(data_y)
+    return result
 
-
-# Agregando columna de 1s
-temp = np.zeros([oceano_train.shape[0], oceano_train.shape[1] + 1])
-temp[:,0] = 1
-temp[:,1:] = oceano_train[:,:]
-oceano_train = temp;
-
-temp = np.zeros([casa_train.shape[0], casa_train.shape[1] + 1])
-temp[:,0] = 1
-temp[:,1:] = casa_train[:,:]
-casa_train = temp;
-
-temp = np.zeros([petroleo_train.shape[0], petroleo_train.shape[1] + 1])
-temp[:,0] = 1
-temp[:,1:] = petroleo_train[:,:]
-petroleo_train = temp;
-
-# print(oceano_train)
-# print(casa_train)
-# print(petroleo_train)
-
-write_data(oceano_train, "oceano")
-write_data(casa_train, "casa")
-write_data(petroleo_train, "petroleo")
-
-#Leo los datos training ya para ser usados
-oceano_train = read_document_divided("oceano-train.csv", 3)
-casa_train = read_document_divided("casa-train.csv", 3)
-petroleo_train = read_document_divided("petroleo-train.csv", 6)
-
-oceano_train = oceano_train[:,:].astype(float)
-casa_train = casa_train[:,:].astype(float)
-petroleo_train = petroleo_train[:,:].astype(float)
-
-# ecuacion normal
-data_x = oceano_train[:,:2]
-data_y = oceano_train[:,2]
-normal_oceano = (np.linalg.inv(data_x.transpose().dot(data_x)).dot(data_x.transpose())).dot(data_y)
-
-data_x = casa_train[:,:2]
-data_y = casa_train[:,2]
-normal_casa = (np.linalg.inv(data_x.transpose().dot(data_x)).dot(data_x.transpose())).dot(data_y)
-
-data_x = petroleo_train[:,:5]
-data_y = petroleo_train[:,5]
-normal_petroleo = (np.linalg.inv(data_x.transpose().dot(data_x)).dot(data_x.transpose())).dot(data_y)
-
-print(normal_oceano)
-print(normal_casa)
-print(normal_petroleo)
 
 def costo(thetas, nparray):
-    valor1 = 1 / 2 * (nparray.shape[0])
+    # valor1 = 1 / (2 * (nparray.shape[0]))   
     #costo = valor1 * dot(x,theta)-y
-
     func_h = np.dot(nparray[:, :nparray.shape[1] - 1], thetas)
     resultado = np.power( (func_h - nparray[:, nparray.shape[1] - 1]) , 2)
     return ( np.sum(resultado) ) / (2 * nparray.shape[0])
+
 
 def gradiente(thetas, nparray, ite, alfa):
     i = int(0)
     while (i < ite):
         valor1 = alfa / (nparray.shape[0])
-
         thetas = thetas - valor1 * (nparray[:, :nparray.shape[1] - 1].transpose().dot(nparray[:, :nparray.shape[1] - 1].dot(thetas) - nparray[:, nparray.shape[1] - 1]))
         i += 1
-        
     return thetas
 
-gradiente_oceano = gradiente([0,0], oceano_train, 10, 1)
-gradiente_casa = gradiente([0,0], casa_train, 10, 1)
-gradiente_petroleo = gradiente([0,0,0,0,0], petroleo_train, 10, 1)
+def orden(array):
+    return array[array[:,1].argsort()]
 
-costo_oceano = costo(normal_oceano, oceano_train)
-print(costo_oceano)
-costo_casa = costo(normal_casa, casa_train)
-print(costo_casa)
-costo_petroleo = costo(normal_petroleo, petroleo_train)
-print(costo_petroleo)
+#Leo los datos training ya para ser usados
+oceano_train = read_document_divided("oceano-train.csv", 3)
+oceano_train = orden(oceano_train)
 
-costo_oceano = costo(gradiente_oceano, oceano_train)
-print(costo_oceano)
-costo_casa = costo(gradiente_casa, casa_train)
-print(costo_casa)
-costo_petroleo = costo(gradiente_petroleo, petroleo_train)
-print(costo_petroleo)
+casa_train = read_document_divided("casa-train.csv", 3)
+casa_train = orden(casa_train)
+
+petroleo_train = read_document_divided("petroleo-train.csv", 6)
+petroleo_train = orden(petroleo_train)
+
+
+
+oceano_test = read_document_divided("oceano-test.csv", 3)
+oceano_test = orden(oceano_test)
+
+casa_test = read_document_divided("casa-test.csv", 3)
+casa_test = orden(casa_test)
+
+petroleo_test = read_document_divided("petroleo-test.csv", 6)
+petroleo_test = orden(petroleo_test)
+
+
+# oceano_train = oceano_train[:,:].astype(float)
+# casa_train = casa_train[:,:].astype(float)
+# petroleo_train = petroleo_train[:,:].astype(float)
+
+# Experimento 1
+
+# CASA
+normal_casa_train = ecuacion_normal(casa_train)
+normal_casa_test = ecuacion_normal(casa_test)
+
+costo_casa_train = costo(normal_casa_train, casa_train)
+costo_casa_test = costo(normal_casa_test, casa_test)
+
+print("CASA")
+print(costo_casa_train)
+print(costo_casa_test)
+
+
+# OCEANO
+normal_oceano_train = ecuacion_normal(oceano_train)
+normal_oceano_test = ecuacion_normal(oceano_test)
+
+costo_oceano_train = costo(normal_oceano_train, oceano_train)
+costo_oceano_test = costo(normal_oceano_test, oceano_test)
+
+print("OCEANO")
+print(costo_oceano_train)
+print(costo_oceano_test)
+
+
+# PETROLEO
+normal_petroleo_train = ecuacion_normal(petroleo_train)
+normal_petroleo_test = ecuacion_normal(petroleo_test)
+
+costo_petroleo_train = costo(normal_petroleo_train, petroleo_train)
+costo_petroleo_test = costo(normal_petroleo_test, petroleo_test)
+
+print("PETROLEO")
+print(costo_petroleo_train)
+print(costo_petroleo_test)
+
+# Experimento 2
+tasa = np.array([0.01, 0.05, 0.1, 0.2, 0.3, 0.4])
+ite = np.array([500, 1000, 1500, 2000, 2500, 3000, 3500])
+
+# CASA
+print("CASA")
+for t in tasa:
+    for i in ite:
+        gra = gradiente([0,0], casa_train, i, t)
+        cos = costo(gra, casa_train)
+        print("iteraciones: ", i, " tasa: ", t, " costo: ", cos)
+
+# OCEANO
+print("\nOCEANO")
+for t in tasa:
+    for i in ite:
+        gra = gradiente([0,0], oceano_train, i, t)
+        cos = costo(gra, oceano_train)
+        print("iteraciones: ", i, " tasa: ", t, " costo: ", cos)
+
+# PETROLEO
+print("\nPETROLEO")
+for t in tasa:
+    for i in ite:
+        gra = gradiente([0,0,0,0,0], petroleo_train, i, t)
+        cos = costo(gra, petroleo_train)
+        print("iteraciones: ", i, " tasa: ", t, " costo: ", cos)
+
+# EXPERIMENTO 3
+
+# casa_train
+
+normal_casa_train = ecuacion_normal(casa_train)
+gradiente_casa_train = gradiente([0, 0], casa_train, 300, 0.01)
+
+
+# Initialize the figure and axes
+fig, ax = plt.subplots(1, figsize=(8, 6))
+fig.suptitle('Precio Vivienda ', fontsize=15)
+
+i = -2
+s = 4
+temp = [normal_casa_train[0] + (normal_casa_train[1] * i), normal_casa_train[0] + (normal_casa_train[1] * s)]
+ax.plot([i, s], temp, color="red", label="Normal")
+temp2 = [gradiente_casa_train[0] + (gradiente_casa_train[1] * i), gradiente_casa_train[0] + (gradiente_casa_train[1] * s)]
+ax.plot([i, s], temp2, color="black", label="Gradient")
+
+ax.plot(casa_train[:,1], casa_train[:,2], 'bo')
+
+ax.legend(loc="lower right", title="Legend Title", frameon=False)
+plt.show()
+
+# Experimento 4
+
+thetas = np.array([[0,-2], [0,-1.5], [0,-1], [0,-0.5], [0,0], [0,0.5], [0,1], [0,1.5], [0,2], [0,2.5], [0,3], [0,3.5], [0,4]])
+result_thetas_train = np.zeros([13])
+result_thetas_test = np.zeros([13])
+# CASA
+
+for th in range(0, len(thetas)):
+    result_thetas_train[th] = costo(thetas[th], casa_train)
+    result_thetas_test[th] = costo(thetas[th], casa_test)
+
+fig, ax = plt.subplots(1, figsize=(8, 6))
+fig.suptitle('Precio Vivienda ', fontsize=15)
+
+plt.xlabel('theta')
+plt.ylabel('F(theta)')
+
+ax.plot(thetas[:,1], result_thetas_train, color="red", label="train")
+ax.plot(thetas[:,1], result_thetas_test, color="black", label="test")
+
+ax.legend(loc="lower right", title="Legend Title", frameon=False)
+plt.show()
+
+
+# OCEANO
+for th in range(0, len(thetas)):
+    result_thetas_train[th] = costo(thetas[th], oceano_train)
+    result_thetas_test[th] = costo(thetas[th], oceano_test)
+
+fig, ax = plt.subplots(1, figsize=(8, 6))
+fig.suptitle('Temperatura Océano', fontsize=15)
+
+plt.xlabel('theta')
+plt.ylabel('F(theta)')
+
+ax.plot(thetas[:,1], result_thetas_train, color="red", label="train")
+ax.plot(thetas[:,1], result_thetas_test, color="black", label="test")
+
+ax.legend(loc="lower right", title="Legend Title", frameon=False)
+plt.show()
+
+
+# PETROLEO
+thetas = np.array([[0,-2,-2,-2,-2], [0,-1.5,-1.5,-1.5,-1.5], [0,-1,-1,-1,-1], [0,-0.5,-0.5,-0.5,-0.5], [0,0,0,0,0], 
+                   [0,0.5,0.5,0.5,0.5], [0,1,1,1,1], [0,1.5,1.5,1.5,1.5], [0,2,2,2,2], [0,2.5,2.5,2.5,2.5], 
+                   [0,3,3,3,3], [0,3.5,3.5,3.5,3.5], [0,4,4,4,4]])
+for th in range(0, len(thetas)):
+    result_thetas_train[th] = costo(thetas[th], petroleo_train)
+    result_thetas_test[th] = costo(thetas[th], petroleo_test)
+
+fig, ax = plt.subplots(1, figsize=(8, 6))
+fig.suptitle('Consumo Petróleo ', fontsize=15)
+
+plt.xlabel('theta')
+plt.ylabel('F(theta)')
+
+ax.plot(thetas[:,1], result_thetas_train, color="red", label="train")
+ax.plot(thetas[:,1], result_thetas_test, color="black", label="test")
+
+ax.legend(loc="lower right", title="Legend Title", frameon=False)
+plt.show()
